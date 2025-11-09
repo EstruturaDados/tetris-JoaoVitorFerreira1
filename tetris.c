@@ -1,56 +1,245 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 
-// Desafio Tetris Stack
-// Tema 3 - Integração de Fila e Pilha
-// Este código inicial serve como base para o desenvolvimento do sistema de controle de peças.
-// Use as instruções de cada nível para desenvolver o desafio.
+#define TAM_FILA 5
+#define TAM_PILHA 3
+
+typedef struct {
+    char nome;
+    int id;
+} Peca;
+
+typedef struct {
+    Peca pecas[TAM_FILA];
+    int inicio;
+    int fim;
+    int total;
+} FilaCircular;
+
+typedef struct {
+    Peca pecas[TAM_PILHA];
+    int topo;
+} Pilha;
+
+FilaCircular fila;
+Pilha pilha;
+int proximoId = 0;
+
+void limparBuffer();
+Peca gerarPeca();
+void exibirEstado();
+
+void inicializarFila();
+int filaEstaVazia();
+int filaEstaCheia();
+void enqueue(Peca p);
+Peca dequeue();
+
+void inicializarPilha();
+int pilhaEstaVazia();
+int pilhaEstaCheia();
+int push(Peca p);
+Peca pop();
+
+void jogarPeca();
+void reservarPeca();
+void usarPecaReservada();
 
 int main() {
+    srand(time(NULL));
+    
+    inicializarPilha();
+    inicializarFila(); 
 
-    // 🧩 Nível Novato: Fila de Peças Futuras
-    //
-    // - Crie uma struct Peca com os campos: tipo (char) e id (int).
-    // - Implemente uma fila circular com capacidade para 5 peças.
-    // - Crie funções como inicializarFila(), enqueue(), dequeue(), filaCheia(), filaVazia().
-    // - Cada peça deve ser gerada automaticamente com um tipo aleatório e id sequencial.
-    // - Exiba a fila após cada ação com uma função mostrarFila().
-    // - Use um menu com opções como:
-    //      1 - Jogar peça (remover da frente)
-    //      0 - Sair
-    // - A cada remoção, insira uma nova peça ao final da fila.
+    int opcao = -1;
 
+    while (opcao != 0) {
+        exibirEstado();
 
+        printf("Opcoes de Acao:\n");
+        printf("1. Jogar peca\n");
+        printf("2. Reservar peca\n");
+        printf("3. Usar peca reservada\n");
+        printf("0. Sair\n");
+        printf("Opcao: ");
 
-    // 🧠 Nível Aventureiro: Adição da Pilha de Reserva
-    //
-    // - Implemente uma pilha linear com capacidade para 3 peças.
-    // - Crie funções como inicializarPilha(), push(), pop(), pilhaCheia(), pilhaVazia().
-    // - Permita enviar uma peça da fila para a pilha (reserva).
-    // - Crie um menu com opção:
-    //      2 - Enviar peça da fila para a reserva (pilha)
-    //      3 - Usar peça da reserva (remover do topo da pilha)
-    // - Exiba a pilha junto com a fila após cada ação com mostrarPilha().
-    // - Mantenha a fila sempre com 5 peças (repondo com gerarPeca()).
+        if (scanf("%d", &opcao) != 1) {
+            opcao = -1;
+        }
+        limparBuffer();
 
-
-    // 🔄 Nível Mestre: Integração Estratégica entre Fila e Pilha
-    //
-    // - Implemente interações avançadas entre as estruturas:
-    //      4 - Trocar a peça da frente da fila com o topo da pilha
-    //      5 - Trocar os 3 primeiros da fila com as 3 peças da pilha
-    // - Para a opção 4:
-    //      Verifique se a fila não está vazia e a pilha tem ao menos 1 peça.
-    //      Troque os elementos diretamente nos arrays.
-    // - Para a opção 5:
-    //      Verifique se a pilha tem exatamente 3 peças e a fila ao menos 3.
-    //      Use a lógica de índice circular para acessar os primeiros da fila.
-    // - Sempre valide as condições antes da troca e informe mensagens claras ao usuário.
-    // - Use funções auxiliares, se quiser, para modularizar a lógica de troca.
-    // - O menu deve ficar assim:
-    //      4 - Trocar peça da frente com topo da pilha
-    //      5 - Trocar 3 primeiros da fila com os 3 da pilha
-
+        switch (opcao) {
+            case 1:
+                jogarPeca();
+                break;
+            case 2:
+                reservarPeca();
+                break;
+            case 3:
+                usarPecaReservada();
+                break;
+            case 0:
+                printf("\n--- Jogo Encerrado ---\n");
+                break;
+            default:
+                printf("Opcao invalida. Tente novamente.\n");
+                break;
+        }
+        
+        if (opcao != 0) {
+            printf("\nPressione Enter para continuar...");
+            getchar();
+        }
+    }
 
     return 0;
 }
 
+void limparBuffer() {
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF);
+}
+
+Peca gerarPeca() {
+    Peca p;
+    char tipos[] = {'I', 'O', 'T', 'L', 'J', 'S', 'Z'};
+    
+    p.nome = tipos[rand() % 7];
+    p.id = proximoId;
+    proximoId++;
+    
+    return p;
+}
+
+void exibirEstado() {
+    printf("\n\n--- ESTADO ATUAL DO JOGO ---\n");
+
+    printf("Fila de pecas: ");
+    if (filaEstaVazia()) {
+        printf("[Vazia]");
+    } else {
+        for (int i = 0; i < fila.total; i++) {
+            int indice = (fila.inicio + i) % TAM_FILA;
+            printf("[%c %d] ", fila.pecas[indice].nome, fila.pecas[indice].id);
+        }
+    }
+    printf("\n");
+
+    printf("Pilha de reserva (Topo -> Base): ");
+    if (pilhaEstaVazia()) {
+        printf("[Vazia]");
+    } else {
+        for (int i = pilha.topo; i >= 0; i--) {
+            printf("[%c %d] ", pilha.pecas[i].nome, pilha.pecas[i].id);
+        }
+    }
+    printf("\n------------------------------\n\n");
+}
+
+void inicializarFila() {
+    fila.inicio = 0;
+    fila.fim = 0;
+    fila.total = 0;
+    
+    for (int i = 0; i < TAM_FILA; i++) {
+        enqueue(gerarPeca());
+    }
+}
+
+int filaEstaVazia() {
+    return (fila.total == 0);
+}
+
+int filaEstaCheia() {
+    return (fila.total == TAM_FILA);
+}
+
+void enqueue(Peca p) {
+    if (filaEstaCheia()) {
+        return;
+    }
+    
+    fila.pecas[fila.fim] = p;
+    fila.fim = (fila.fim + 1) % TAM_FILA;
+    fila.total++;
+}
+
+Peca dequeue() {
+    Peca pVazia = {' ', -1};
+    
+    if (filaEstaVazia()) {
+        return pVazia;
+    }
+
+    Peca p = fila.pecas[fila.inicio];
+    fila.inicio = (fila.inicio + 1) % TAM_FILA;
+    fila.total--;
+    
+    return p;
+}
+
+void inicializarPilha() {
+    pilha.topo = -1;
+}
+
+int pilhaEstaVazia() {
+    return (pilha.topo == -1);
+}
+
+int pilhaEstaCheia() {
+    return (pilha.topo == TAM_PILHA - 1);
+}
+
+int push(Peca p) {
+    if (pilhaEstaCheia()) {
+        return 0;
+    }
+    
+    pilha.topo++;
+    pilha.pecas[pilha.topo] = p;
+    return 1;
+}
+
+Peca pop() {
+    Peca pVazia = {' ', -1};
+
+    if (pilhaEstaVazia()) {
+        return pVazia;
+    }
+
+    Peca p = pilha.pecas[pilha.topo];
+    pilha.topo--;
+    return p;
+}
+
+void jogarPeca() {
+    Peca p = dequeue();
+    printf("ACAO: Peca [%c %d] foi jogada.\n", p.nome, p.id);
+
+    enqueue(gerarPeca());
+}
+
+void reservarPeca() {
+    if (pilhaEstaCheia()) {
+        printf("ACAO: Pilha de reserva esta cheia! Nao e possivel reservar.\n");
+        return;
+    }
+
+    Peca p = dequeue();
+    
+    push(p);
+    printf("ACAO: Peca [%c %d] foi movida para a reserva.\n", p.nome, p.id);
+
+    enqueue(gerarPeca());
+}
+
+void usarPecaReservada() {
+    Peca p = pop();
+
+    if (p.id == -1) {
+        printf("ACAO: Pilha de reserva esta vazia! Nao ha pecas para usar.\n");
+    } else {
+        printf("ACAO: Peca [%c %d] foi usada (removida da reserva).\n", p.nome, p.id);
+    }
+}
